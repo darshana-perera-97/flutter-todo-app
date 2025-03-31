@@ -1,387 +1,281 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Import DateFormat class
-import '../models/todo_item.dart';
 
 class TodoScreen extends StatefulWidget {
-  const TodoScreen({Key? key}) : super(key: key);
-
   @override
-  State<TodoScreen> createState() => _TodoScreenState();
+  _TodoScreenState createState() => _TodoScreenState();
 }
 
 class _TodoScreenState extends State<TodoScreen> {
-  final List<TodoItem> _todoList = [];
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  DateTime? _selectedDeadline;
+  List<Map<String, dynamic>> goals = [];
+  final TextEditingController _todoController = TextEditingController();
+  TimeOfDay? selectedTime;
 
-  void _addTodoItem(String title, String description, DateTime deadline) {
-    if (title.isNotEmpty && description.isNotEmpty && deadline != null) {
+  // Add a new goal
+  void addTodo() {
+    String task = _todoController.text.trim();
+    if (task.isNotEmpty && selectedTime != null) {
       setState(() {
-        _todoList.add(
-          TodoItem(
-            title: title,
-            description: description,
-            deadline: deadline,
-            dateTime: DateTime.now(),
-          ),
-        );
+        goals.add({'title': task, 'completed': false, 'time': selectedTime});
+        _todoController.clear();
+        selectedTime = null;
       });
-      _titleController.clear();
-      _descriptionController.clear();
-      setState(() {
-        _selectedDeadline = null;
-      });
+
       Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Please enter task and pick time")),
+      );
     }
   }
 
-  void _showAddTodoDialog() {
-    showDialog(
+  // Toggle checkbox
+  void toggleGoal(int index) {
+    setState(() {
+      goals[index]['completed'] = !goals[index]['completed'];
+    });
+  }
+
+  // Pick time
+  void pickTime() async {
+    final TimeOfDay? picked = await showTimePicker(
       context: context,
-      builder: (context) {
-        return Dialog(
-          insetPadding: EdgeInsets.symmetric(horizontal: 40), // Increase width
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Popup Header
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0077B5),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                ),
-                child: const Center(
-                  child: Text(
-                    'Add New Task',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        selectedTime = picked;
+      });
+    }
+  }
+
+  // Add Goal Modal
+  void _showAddTodoModal() {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      backgroundColor: Color(0xFFF6F8FF),
+      isScrollControlled: true,
+      builder:
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              top: 20,
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Add Goal",
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
                   ),
                 ),
-              ),
-              // Task Title Input
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  controller: _titleController,
-                  cursorColor: const Color(0xFF0077B5),
+                SizedBox(height: 20),
+                TextField(
+                  controller: _todoController,
                   decoration: InputDecoration(
-                    hintText: 'Enter task title...',
+                    hintText: "Enter your activity",
                     filled: true,
-                    fillColor: Colors.grey[100],
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Colors.grey[300]!,
-                        width: 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF0077B5),
-                        width: 2,
-                      ),
-                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 20),
                   ),
                 ),
-              ),
-              // Task Description Input (Text Area)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  controller: _descriptionController,
-                  maxLines: 4, // Make it a multi-line text area
-                  cursorColor: const Color(0xFF0077B5),
-                  decoration: InputDecoration(
-                    hintText: 'Enter task description...',
-                    filled: true,
-                    fillColor: Colors.grey[100],
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Colors.grey[300]!,
-                        width: 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF0077B5),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // DatePicker for Deadline
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: GestureDetector(
-                  onTap: () async {
-                    DateTime? picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) {
-                      TimeOfDay? pickedTime = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.fromDateTime(DateTime.now()),
-                      );
-                      if (pickedTime != null) {
-                        setState(() {
-                          _selectedDeadline = DateTime(
-                            picked.year,
-                            picked.month,
-                            picked.day,
-                            pickedTime.hour,
-                            pickedTime.minute,
-                          );
-                        });
-                      }
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF0077B5),
-                        width: 2,
-                      ),
-                    ),
-                    child: Text(
-                      _selectedDeadline == null
-                          ? 'Select Deadline'
-                          : DateFormat(
-                            'MMM d, h:mm a',
-                          ).format(_selectedDeadline!),
-                      style: TextStyle(
-                        color:
-                            _selectedDeadline == null
-                                ? Colors.grey
-                                : const Color(0xFF0077B5),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Buttons
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                SizedBox(height: 20),
+                Row(
                   children: [
-                    TextButton(
-                      onPressed: () {
-                        _titleController.clear();
-                        _descriptionController.clear();
-                        setState(() {
-                          _selectedDeadline = null;
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed:
-                          () => _addTodoItem(
-                            _titleController.text,
-                            _descriptionController.text,
-                            _selectedDeadline!,
-                          ),
+                    ElevatedButton.icon(
+                      onPressed: pickTime,
+                      icon: Icon(Icons.access_time),
+                      label: Text("Pick Time"),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0077B5),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
+                        backgroundColor: Colors.orange,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Add',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 12),
+                    if (selectedTime != null)
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Text(
+                          "Selected: ${selectedTime!.format(context)}",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-            ],
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: addTodo,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  child: Center(
+                    child: Text("Add Activity", style: TextStyle(fontSize: 18)),
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
     );
   }
 
-  void _toggleTodoStatus(int index) {
-    setState(() {
-      _todoList[index].isDone = !_todoList[index].isDone;
-    });
-  }
+  // Card UI for each todo with accurate remaining time
+  Widget todoCard(Map<String, dynamic> goal, int index) {
+    final now = DateTime.now();
+    final TimeOfDay goalTime = goal['time'];
 
-  void _deleteTodoItem(int index) {
-    setState(() {
-      _todoList.removeAt(index);
-    });
-  }
+    final goalDateTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      goalTime.hour,
+      goalTime.minute,
+    );
 
-  String _formatDate(DateTime dateTime) {
-    return DateFormat('MMM d, h:mm a').format(dateTime);
+    final duration = goalDateTime.difference(now);
+    final int hourLeft = duration.inHours;
+    final int minutesLeft = duration.inMinutes % 60;
+
+    String timeFormatted = goalTime.format(context);
+    String remainingTime =
+        duration.isNegative
+            ? "0 hr to goal"
+            : "${hourLeft} hr ${minutesLeft} min to goal";
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Checkbox(
+            value: goal['completed'],
+            onChanged: (_) => toggleGoal(index),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  goal['title'],
+                  style: TextStyle(
+                    fontSize: 16,
+                    decoration:
+                        goal['completed']
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                  ),
+                ),
+                Text(
+                  "$remainingTime - $timeFormatted",
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    int completed = goals.where((g) => g['completed']).length;
+
     return Scaffold(
+      backgroundColor: Color(0xFFF6F8FF),
       appBar: AppBar(
-        title: const Text('📝 To-Do List'),
-        backgroundColor: const Color(0xFF0077B5),
-        centerTitle: true,
-        elevation: 2,
+        title: Text('My Goals'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.black,
+        actions: [
+          IconButton(icon: Icon(Icons.calendar_today), onPressed: () {}),
+        ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(20),
         child: Column(
           children: [
-            const Text(
-              "What's on your list today?",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0077B5),
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: CircularProgressIndicator(
+                      value: goals.isEmpty ? 0 : completed / goals.length,
+                      strokeWidth: 8,
+                      backgroundColor: Colors.grey[300],
+                    ),
+                  ),
+                  Text(
+                    "${goals.isEmpty ? 0 : ((completed / goals.length) * 100).round()}%",
+                    style: TextStyle(fontSize: 20),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
+            Text(
+              "$completed of ${goals.length} goals completed for today!",
+              style: TextStyle(
+                color: Colors.blueAccent,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            SizedBox(height: 20),
             Expanded(
               child:
-                  _todoList.isEmpty
-                      ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.task_alt,
-                              size: 80,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'No tasks added yet!',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
+                  goals.isEmpty
+                      ? Center(child: Text("No goals yet. Tap + to add one."))
                       : ListView.builder(
-                        itemCount: _todoList.length,
-                        itemBuilder: (context, index) {
-                          final todo = _todoList[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: const Color(0xFF0077B5),
-                                width: 2, // Set border color
-                              ),
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              title: Text(
-                                todo.title,
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF0077B5),
-                                  decoration:
-                                      todo.isDone
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    todo.description,
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _formatDate(todo.dateTime),
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: Icon(
-                                      todo.isDone
-                                          ? Icons.check_box
-                                          : Icons.check_box_outline_blank,
-                                      color: const Color(0xFF0077B5),
-                                    ),
-                                    onPressed: () => _toggleTodoStatus(index),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.delete,
-                                      color: const Color(0xFF0077B5),
-                                    ),
-                                    onPressed: () => _deleteTodoItem(index),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                        itemCount: goals.length,
+                        itemBuilder:
+                            (context, index) => todoCard(goals[index], index),
                       ),
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddTodoDialog,
-        backgroundColor: const Color(0xFF0077B5),
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.orange,
+        onPressed: _showAddTodoModal,
+        child: Icon(Icons.add, size: 30),
       ),
     );
   }
